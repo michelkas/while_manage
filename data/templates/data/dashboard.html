@@ -1,0 +1,67 @@
+{% load static %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trésor — gestion financière</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{% static 'data/dashboard.css' %}">
+</head>
+<body>
+  <aside>
+    <a class="brand" href="/"><span><i class="bi bi-shop-window"></i></span> Trésor</a>
+    <p class="tagline">Pilotage simple de votre boutique.</p>
+    <p class="nav-title">MENU PRINCIPAL</p>
+    <nav><a class="active" href="#apercu"><span><i class="bi bi-grid-1x2"></i></span> Vue d'ensemble</a><a href="#ventes"><span><i class="bi bi-cart-check"></i></span> Ventes</a><a href="#depenses"><span><i class="bi bi-wallet2"></i></span> Dépenses</a><a href="#stock"><span><i class="bi bi-box-seam"></i></span> Stock</a></nav>
+    <div class="account"><span>{{ request.user.get_username|slice:':1'|upper }}</span><div><b>{{ request.user.get_username }}</b><small>Session sécurisée</small></div><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button title="Se déconnecter"><i class="bi bi-box-arrow-right"></i></button></form></div>
+    <div class="help">Les ventes alimentent les mois.<br>Les dépenses prélèvent le solde disponible.</div>
+  </aside>
+  <main>
+    <header>
+      <div><p class="eyebrow">ESPACE DE PILOTAGE</p><h1>La santé de votre boutique.</h1><p class="header-subtitle">Suivez vos ventes, votre caisse et votre stock en un seul endroit.</p></div>
+      <form class="period" method="get"><select name="month">{% for number, name in months %}<option value="{{ number }}" {% if number == selected_month %}selected{% endif %}>{{ name }}</option>{% endfor %}</select><input type="number" name="year" value="{{ selected_year }}" min="2000" max="2100"><button>Afficher</button></form>
+    </header>
+    {% if messages %}{% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+
+    <section id="apercu" class="summary">
+      <article class="card income"><span class="icon"><i class="bi bi-graph-up-arrow"></i></span><p>Entrées · {{ selected_month_name }}</p><strong>{{ income_total|floatformat:2 }}</strong><small>Ventes du mois</small></article>
+      <article class="card expense"><span class="icon"><i class="bi bi-receipt-cutoff"></i></span><p>Dépenses · {{ selected_month_name }}</p><strong>{{ expense_total|floatformat:2 }}</strong><small>Déclarées ce mois</small></article>
+      <article class="card balance"><span class="icon"><i class="bi bi-pie-chart"></i></span><p>Solde du mois</p><strong>{{ available_total|floatformat:2 }}</strong><small>Après prélèvements</small></article>
+      <article class="card stock"><span class="icon"><i class="bi bi-boxes"></i></span><p>Valeur du stock</p><strong>{{ stock_value|floatformat:2 }}</strong><small>Articles disponibles</small></article>
+      <article class="card cash"><span class="icon"><i class="bi bi-cash-stack"></i></span><p>Trésorerie disponible</p><strong>{{ cash_available|floatformat:2 }}</strong><small>Toutes périodes confondues</small></article>
+    </section>
+
+    <section class="forms">
+      <article class="panel"><div class="panel-title"><span class="dot green"></span><div><h2>Nouvelle vente</h2><p>Le mois est identifié automatiquement par la date.</p></div></div><form method="post" action="{% url 'create_income' %}">{% csrf_token %}{{ income_form.as_div }}<button class="primary">Enregistrer la vente <b><i class="bi bi-arrow-right"></i></b></button></form></article>
+      <article class="panel"><div class="panel-title"><span class="dot coral"></span><div><h2>Nouvelle dépense</h2><p>Prélèvement FIFO sur les recettes antérieures.</p></div></div><form method="post" action="{% url 'create_expense' %}">{% csrf_token %}{{ expense_form.as_div }}<button class="dark">Enregistrer la dépense <b><i class="bi bi-arrow-right"></i></b></button></form></article>
+    </section>
+
+    <section class="visuals" aria-label="Analyse financière">
+      <article class="chart-panel">
+        <div class="section-heading"><div><p class="eyebrow">ANALYSE ANNUELLE</p><h2>Ventes et dépenses</h2></div><div class="legend"><span><i class="legend-income"></i>Entrées</span><span><i class="legend-expense"></i>Sorties</span></div></div>
+        <div class="bar-chart">{% for item in monthly_chart %}<div class="bar-group" title="{{ item.label }} : entrées {{ item.income|floatformat:2 }}, sorties {{ item.expense|floatformat:2 }}"><div class="bars"><span class="bar in" style="height: {{ item.income_height }}%"></span><span class="bar out" style="height: {{ item.expense_height }}%"></span></div><small>{{ item.label }}</small></div>{% endfor %}</div>
+      </article>
+      <article class="flow-panel"><p class="eyebrow">CIRCUIT DE TRÉSORERIE</p><h2>Comment l’argent est suivi</h2><div class="cash-flow"><div class="flow-node sale-node"><span><i class="bi bi-cart-check"></i></span><b>Ventes</b><small>Entrées par date</small></div><i class="bi bi-arrow-right"></i><div class="flow-node cash-node"><span><i class="bi bi-cash-stack"></i></span><b>Trésorerie</b><small>{{ cash_available|floatformat:2 }} disponible</small></div><i class="bi bi-arrow-right"></i><div class="flow-node out-node"><span><i class="bi bi-wallet2"></i></span><b>Dépenses</b><small>Prélèvement FIFO</small></div></div><p class="flow-note">Chaque dépense utilise automatiquement les recettes les plus anciennes encore disponibles.</p></article>
+    </section>
+
+    <section id="ventes" class="data-section"><div class="section-heading"><div><p class="eyebrow">{{ selected_month_name|upper }} {{ selected_year }}</p><h2>Ventes enregistrées</h2></div><span class="count">{{ sales|length }} opération{{ sales|length|pluralize }}</span></div><div class="table-wrap"><table><thead><tr><th>Article</th><th>Date</th><th>Quantité</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>{% for sale in sales %}<tr><td><b>{{ sale.article.name }}</b></td><td>{{ sale.date|date:'d/m/Y' }}</td><td>{{ sale.quantity }}</td><td>{{ sale.unit_price|floatformat:2 }}</td><td class="positive">+ {{ sale.total_price|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="5" class="empty">Aucune vente pour ce mois.</td></tr>{% endfor %}</tbody></table></div></section>
+
+    <section id="depenses" class="data-section"><div class="section-heading"><div><p class="eyebrow">SORTIES DU MOIS</p><h2>Dépenses enregistrées</h2></div></div><div class="expenses-list">{% for expense in expenses %}<article class="expense-row"><div class="expense-mark"><i class="bi bi-wallet2"></i></div><div><b>{{ expense.description }}</b><p>{{ expense.date|date:'d/m/Y' }} · Prélevé sur {% for item in expense.allocations.all %}{{ item.get_month_display }} {{ item.year }}{% if not forloop.last %}, {% endif %}{% endfor %}</p></div><strong>- {{ expense.amount|floatformat:2 }}</strong></article>{% empty %}<p class="empty">Aucune dépense pour ce mois.</p>{% endfor %}</div></section>
+
+    <section id="stock" class="data-section stock-section"><div class="section-heading"><div><p class="eyebrow">INVENTAIRE</p><h2>Articles en stock</h2></div><div class="stock-actions"><button class="text-button" onclick="document.getElementById('entry-dialog').showModal()">+ Réapprovisionner</button><button class="text-button" onclick="document.getElementById('article-dialog').showModal()">+ Nouvel article</button></div></div>{% if low_stock %}<div class="alert-stock"><b>Attention stock bas</b> — {% for article in low_stock %}{{ article.name }} ({{ article.quantity }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}<div class="articles">{% for article in articles %}<article><span>{{ article.name|slice:':1'|upper }}</span><div><b>{{ article.name }}</b><p>{% if article.reference %}{{ article.reference }} · {% endif %}{{ article.quantity }} unité{{ article.quantity|pluralize }} disponible{{ article.quantity|pluralize }}</p></div><strong>{{ article.price|floatformat:2 }}</strong></article>{% empty %}<p class="empty">Votre stock est vide.</p>{% endfor %}</div></section>
+  </main>
+  <dialog id="article-dialog"><div class="dialog-head"><div><p class="eyebrow">INVENTAIRE</p><h2>Ajouter au stock</h2></div><button onclick="this.closest('dialog').close()">×</button></div><form method="post" action="{% url 'create_article' %}">{% csrf_token %}{{ article_form.as_div }}<button class="primary">Ajouter l'article</button></form></dialog>
+  <dialog id="entry-dialog"><div class="dialog-head"><div><p class="eyebrow">RÉAPPROVISIONNEMENT</p><h2>Ajouter de la marchandise</h2></div><button onclick="this.closest('dialog').close()">×</button></div><form method="post" action="{% url 'create_stock_entry' %}">{% csrf_token %}{{ stock_entry_form.as_div }}<button class="primary">Mettre à jour le stock</button></form></dialog>
+  <script>
+    document.querySelectorAll('.panel form > div, dialog form > div').forEach((field) => {
+      const control = field.querySelector('input, select, textarea');
+      if (!control || !field.querySelector('.helptext')) return;
+      control.addEventListener('focus', () => field.classList.add('show-help'));
+      control.addEventListener('blur', () => field.classList.remove('show-help'));
+    });
+  </script>
+</body>
+</html>
