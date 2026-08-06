@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connexion — Trésor</title>
+  <title>Connexion </title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -11,7 +11,7 @@
 </head>
 <body>
   <main class="login-shell">
-    <section class="welcome"><a class="brand" href="/"><span><i class="bi bi-shop-window"></i></span> Trésor</a><div><p class="eyebrow">GESTION DE BOUTIQUE</p><h1>Gardez le contrôle<br>de votre activité.</h1><p>Stock, ventes, dépenses et trésorerie réunis dans un espace sécurisé.</p></div><small>© {% now 'Y' %} Trésor · Espace privé</small></section>
+    <section class="welcome"><a class="brand" href="/"><span><i class="bi bi-shop-window"></i></span> Manager</a><div><p class="eyebrow">GESTION DE BOUTIQUE</p><h1>Gardez le contrôle<br>de votre activité.</h1><p>Stock, ventes, dépenses et trésorerie réunis dans un espace sécurisé.</p></div><small>© {% now 'Y' %} Trésor · Espace privé</small></section>
     <section class="login-panel"><form method="post"><p class="eyebrow">ACCÈS SÉCURISÉ</p><h2>Bon retour.</h2><p class="intro">Connectez-vous pour accéder à votre tableau de bord.</p>{% csrf_token %}{% if form.non_field_errors %}<div class="error">Identifiant ou mot de passe incorrect.</div>{% endif %}<div class="field"><label for="id_username">Nom d’utilisateur</label>{{ form.username }}</div><div class="field"><label for="id_password">Mot de passe</label>{{ form.password }}</div><button type="submit">Se connecter <span><i class="bi bi-arrow-right"></i></span></button></form></section>
   </main>
 </body>
