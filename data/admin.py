@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Article, In, Out, OutAllocation, StockEntry
+from .models import Article, In, Out, OutAllocation, StockEntry, WeeklyReport
 
 
 @admin.register(Article)
@@ -18,6 +18,12 @@ class InAdmin(admin.ModelAdmin):
 class StockEntryAdmin(admin.ModelAdmin):
     list_display = ('article', 'quantity', 'unit_cost', 'date', 'note')
     list_filter = ('date',)
+
+
+@admin.register(WeeklyReport)
+class WeeklyReportAdmin(admin.ModelAdmin):
+    list_display = ('week_start', 'week_end', 'income_total', 'expense_total', 'balance_total', 'generated_at')
+    readonly_fields = ('week_start', 'week_end', 'income_total', 'expense_total', 'balance_total', 'generated_at')
 
 
 class OutAllocationInline(admin.TabularInline):

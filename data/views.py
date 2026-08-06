@@ -9,13 +9,14 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from .forms import ArticleForm, ExpenseForm, IncomeForm, StockEntryForm
-from .models import Article, In, Out, OutAllocation, StockEntry
-from .services import allocate_expense
+from .models import Article, In, Out, OutAllocation, StockEntry, WeeklyReport
+from .services import allocate_expense, close_completed_weeks
 
 
 @login_required
 def dashboard(request):
     today = timezone.localdate()
+    close_completed_weeks(today)
     try:
         selected_month = int(request.GET.get('month', today.month))
         selected_year = int(request.GET.get('year', today.year))
@@ -54,6 +55,7 @@ def dashboard(request):
             'income_height': max(3, int(income * 100 / chart_peak)),
             'expense_height': max(3, int(expense * 100 / chart_peak)),
         })
+    weekly_reports = list(WeeklyReport.objects.all()[:8])
 
     return render(request, 'data/dashboard.html', {
         'article_form': ArticleForm(), 'stock_entry_form': StockEntryForm(), 'income_form': IncomeForm(), 'expense_form': ExpenseForm(),
@@ -62,6 +64,7 @@ def dashboard(request):
         'available_total': income_total - allocated, 'cash_available': total_received - total_allocated,
         'stock_value': stock_value, 'low_stock': [article for article in articles if article.needs_restock],
         'monthly_chart': monthly_chart,
+        'weekly_reports': reversed(weekly_reports),
         'selected_month': selected_month, 'selected_year': selected_year,
         'selected_month_name': selected_name, 'months': [(number, label) for number, label in enumerate(dict(Out._meta.get_field('month').choices).values(), 1)],
     })

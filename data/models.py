@@ -136,3 +136,22 @@ class OutAllocation(models.Model):
 
     def __str__(self):
         return f"{self.out.description} — {self.amount} ({self.month} {self.year})"
+
+
+class WeeklyReport(models.Model):
+    """Clôture d'une semaine terminée, calculée depuis les opérations enregistrées."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    week_start = models.DateField(unique=True)
+    week_end = models.DateField()
+    income_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    expense_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    balance_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Rapport hebdomadaire'
+        verbose_name_plural = 'Rapports hebdomadaires'
+        ordering = ['-week_start']
+
+    def __str__(self):
+        return f"Semaine du {self.week_start:%d/%m/%Y}"

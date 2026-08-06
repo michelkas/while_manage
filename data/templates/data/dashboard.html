@@ -12,7 +12,7 @@
 </head>
 <body>
   <aside>
-    <a class="brand" href="/"><span><i class="bi bi-shop-window"></i></span> Trésor</a>
+    <a class="brand" href="/"><span><i class="bi bi-shop-window"></i></span> Manager</a>
     <p class="tagline">Pilotage simple de votre boutique.</p>
     <p class="nav-title">MENU PRINCIPAL</p>
     <nav><a class="active" href="#apercu"><span><i class="bi bi-grid-1x2"></i></span> Vue d'ensemble</a><a href="#ventes"><span><i class="bi bi-cart-check"></i></span> Ventes</a><a href="#depenses"><span><i class="bi bi-wallet2"></i></span> Dépenses</a><a href="#stock"><span><i class="bi bi-box-seam"></i></span> Stock</a></nav>
@@ -21,7 +21,7 @@
   </aside>
   <main>
     <header>
-      <div><p class="eyebrow">ESPACE DE PILOTAGE</p><h1>La santé de votre boutique.</h1><p class="header-subtitle">Suivez vos ventes, votre caisse et votre stock en un seul endroit.</p></div>
+      <div><p class="eyebrow">ESPACE DE PILOTAGE</p><h1>La santé de votre Business.</h1><p class="header-subtitle">Suivez vos ventes, votre caisse et votre stock en un seul endroit.</p></div>
       <form class="period" method="get"><select name="month">{% for number, name in months %}<option value="{{ number }}" {% if number == selected_month %}selected{% endif %}>{{ name }}</option>{% endfor %}</select><input type="number" name="year" value="{{ selected_year }}" min="2000" max="2100"><button>Afficher</button></form>
     </header>
     {% if messages %}{% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
@@ -45,6 +45,11 @@
         <div class="bar-chart">{% for item in monthly_chart %}<div class="bar-group" title="{{ item.label }} : entrées {{ item.income|floatformat:2 }}, sorties {{ item.expense|floatformat:2 }}"><div class="bars"><span class="bar in" style="height: {{ item.income_height }}%"></span><span class="bar out" style="height: {{ item.expense_height }}%"></span></div><small>{{ item.label }}</small></div>{% endfor %}</div>
       </article>
       <article class="flow-panel"><p class="eyebrow">CIRCUIT DE TRÉSORERIE</p><h2>Comment l’argent est suivi</h2><div class="cash-flow"><div class="flow-node sale-node"><span><i class="bi bi-cart-check"></i></span><b>Ventes</b><small>Entrées par date</small></div><i class="bi bi-arrow-right"></i><div class="flow-node cash-node"><span><i class="bi bi-cash-stack"></i></span><b>Trésorerie</b><small>{{ cash_available|floatformat:2 }} disponible</small></div><i class="bi bi-arrow-right"></i><div class="flow-node out-node"><span><i class="bi bi-wallet2"></i></span><b>Dépenses</b><small>Prélèvement FIFO</small></div></div><p class="flow-note">Chaque dépense utilise automatiquement les recettes les plus anciennes encore disponibles.</p></article>
+    </section>
+
+    <section class="weekly-section" aria-label="Évaluation hebdomadaire">
+      <div class="section-heading"><div><p class="eyebrow">ÉVALUATION HEBDOMADAIRE</p><h2>Rapports hebdomadaires clôturés</h2></div><span class="count">Uniquement les semaines terminées avec activité</span></div>
+      <div class="table-wrap"><table class="weekly-table"><thead><tr><th>Semaine</th><th>Entrées</th><th>Dépenses</th><th>Solde hebdomadaire</th></tr></thead><tbody>{% for report in weekly_reports %}<tr><td><span class="week-label"><i class="bi bi-calendar-week"></i>{{ report.week_start|date:'d/m' }} — {{ report.week_end|date:'d/m/Y' }}</span></td><td class="positive">+ {{ report.income_total|floatformat:2 }}</td><td class="negative">− {{ report.expense_total|floatformat:2 }}</td><td class="weekly-balance {% if report.balance_total < 0 %}negative{% else %}positive{% endif %}">{{ report.balance_total|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="4" class="empty">Aucun rapport à afficher : une semaine avec activité doit d’abord être terminée.</td></tr>{% endfor %}</tbody></table></div>
     </section>
 
     <section id="ventes" class="data-section"><div class="section-heading"><div><p class="eyebrow">{{ selected_month_name|upper }} {{ selected_year }}</p><h2>Ventes enregistrées</h2></div><span class="count">{{ sales|length }} opération{{ sales|length|pluralize }}</span></div><div class="table-wrap"><table><thead><tr><th>Article</th><th>Date</th><th>Quantité</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>{% for sale in sales %}<tr><td><b>{{ sale.article.name }}</b></td><td>{{ sale.date|date:'d/m/Y' }}</td><td>{{ sale.quantity }}</td><td>{{ sale.unit_price|floatformat:2 }}</td><td class="positive">+ {{ sale.total_price|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="5" class="empty">Aucune vente pour ce mois.</td></tr>{% endfor %}</tbody></table></div></section>

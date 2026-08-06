@@ -5,8 +5,8 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from .models import Article, In, Out, OutAllocation, StockEntry
-from .services import allocate_expense
+from .models import Article, In, Out, OutAllocation, StockEntry, WeeklyReport
+from .services import allocate_expense, close_completed_weeks
 
 
 class CashManagementTests(TestCase):
@@ -42,6 +42,17 @@ class CashManagementTests(TestCase):
         self.assertEqual(self.article.quantity, 32)
         self.assertEqual(self.article.price, Decimal('12.00'))
 
+    def test_only_completed_weeks_with_activity_are_saved(self):
+        self.sale(date(2026, 1, 6), 2, '20.00')
+        Out.objects.create(description='Transport', amount=Decimal('10.00'), date=date(2026, 1, 9))
+        close_completed_weeks(today=date(2026, 1, 12))
+        report = WeeklyReport.objects.get(week_start=date(2026, 1, 5))
+        self.assertEqual(report.week_end, date(2026, 1, 11))
+        self.assertEqual(report.income_total, Decimal('40.00'))
+        self.assertEqual(report.expense_total, Decimal('10.00'))
+        self.assertEqual(report.balance_total, Decimal('30.00'))
+        self.assertEqual(WeeklyReport.objects.count(), 1)
+
 
 class AccessControlTests(TestCase):
     def setUp(self):
@@ -61,7 +72,7 @@ class AccessControlTests(TestCase):
     def test_user_can_login_and_open_dashboard(self):
         response = self.client.post('/connexion/', {'username': 'gerant', 'password': 'mot-de-passe-fort-2026'})
         self.assertRedirects(response, '/')
-        self.assertContains(self.client.get('/'), 'La santé de votre boutique')
+        self.assertContains(self.client.get('/'), 'Rapports hebdomadaires clôturés')
 
     def test_expense_is_split_between_months(self):
         self.sale(date(2026, 1, 5), 3, '10.00')
