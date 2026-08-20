@@ -7,7 +7,7 @@ from django.db import transaction
 from django.db.models import Min, Sum
 from django.utils import timezone
 
-from .models import In, Out, OutAllocation, WeeklyReport
+from .models import Article, In, Out, OutAllocation, StockEntry, WeeklyReport
 
 
 def allocate_expense(expense):
@@ -41,6 +41,15 @@ def allocate_expense(expense):
         if remaining > 0:
             raise ValidationError("Solde insuffisant : cette dépense dépasse les entrées disponibles jusqu'à sa date.")
         OutAllocation.objects.bulk_create(allocations)
+
+
+def delete_article(article):
+    """Supprime un article et son historique sans utiliser le collecteur Django."""
+    using = article._state.db or 'default'
+    with transaction.atomic(using=using):
+        In.objects.using(using).filter(article_id=article.pk)._raw_delete(using=using)
+        StockEntry.objects.using(using).filter(article_id=article.pk)._raw_delete(using=using)
+        Article.objects.using(using).filter(pk=article.pk)._raw_delete(using=using)
 
 
 def close_completed_weeks(today=None):

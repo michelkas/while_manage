@@ -1,0 +1,21 @@
+{% if page_obj.paginator.num_pages > 1 %}
+  <nav class="pagination" aria-label="Pagination">
+    {% if page_obj.has_previous %}
+      <a href="?{{ page_param }}={{ page_obj.previous_page_number }}{% if selected_month %}
+          &month={{ selected_month }}&year={{ selected_year }}
+        {% endif %}"
+        title="Page précédente">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    {% endif %}
+    <span>Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+      <a href="?{{ page_param }}={{ page_obj.next_page_number }}{% if selected_month %}
+          &month={{ selected_month }}&year={{ selected_year }}
+        {% endif %}"
+        title="Page suivante">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    {% endif %}
+  </nav>
+{% endif %}

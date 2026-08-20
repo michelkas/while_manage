@@ -1,11 +1,18 @@
 from django.contrib import admin
 from .models import Article, In, Out, OutAllocation, StockEntry, WeeklyReport
+from .services import delete_article
 
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     list_display = ('name', 'reference', 'price', 'quantity', 'reorder_level', 'date_added')
     search_fields = ('name',)
+
+    def get_deleted_objects(self, objs, request):
+        return [str(obj) for obj in objs], {self.opts.verbose_name_plural: len(objs)}, set(), []
+
+    def delete_model(self, request, obj):
+        delete_article(obj)
 
 
 @admin.register(In)

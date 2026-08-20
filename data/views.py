@@ -4,13 +4,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Sum
-from django.shortcuts import redirect, render
+from django.db.models import F, Sum
+from django.core.paginator import Paginator
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from urllib.parse import urlencode
 
 from .forms import ArticleForm, ExpenseForm, IncomeForm, StockEntryForm
 from .models import Article, In, Out, OutAllocation, StockEntry, WeeklyReport
-from .services import allocate_expense, close_completed_weeks
+from .services import allocate_expense, close_completed_weeks, delete_article as remove_article
 
 
 @login_required
@@ -32,8 +34,10 @@ def dashboard(request):
     selected_code = f'{selected_month:02d}'
     selected_name = dict(Out._meta.get_field('month').choices)[selected_code]
     allocated = OutAllocation.objects.filter(year=selected_year, month=selected_code).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    articles = Article.objects.order_by('name')
-    stock_value = sum((article.price * article.quantity for article in articles), Decimal('0.00'))
+    articles_queryset = Article.objects.order_by('name')
+    articles = Paginator(articles_queryset, 10).get_page(request.GET.get('articles_page'))
+    stock_value = Article.objects.aggregate(total=Sum('price'))['total'] or Decimal('0.00')
+    stock_value = sum((article.price * article.quantity for article in Article.objects.all()), Decimal('0.00'))
     total_received = In.objects.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
     total_allocated = OutAllocation.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     incomes_by_month = {
@@ -57,12 +61,15 @@ def dashboard(request):
         })
     weekly_reports = list(WeeklyReport.objects.all()[:8])
 
+    sales = Paginator(sales, 10).get_page(request.GET.get('sales_page'))
+    expenses = Paginator(expenses, 10).get_page(request.GET.get('expenses_page'))
+    recent_entries = StockEntry.objects.select_related('article')[:5]
     return render(request, 'data/dashboard.html', {
         'article_form': ArticleForm(), 'stock_entry_form': StockEntryForm(), 'income_form': IncomeForm(), 'expense_form': ExpenseForm(),
-        'articles': articles, 'sales': sales, 'expenses': expenses, 'recent_entries': StockEntry.objects.select_related('article')[:5],
+        'articles': articles, 'sales': sales, 'expenses': expenses, 'recent_entries': recent_entries,
         'income_total': income_total, 'expense_total': expense_total,
         'available_total': income_total - allocated, 'cash_available': total_received - total_allocated,
-        'stock_value': stock_value, 'low_stock': [article for article in articles if article.needs_restock],
+        'stock_value': stock_value, 'low_stock': [article for article in Article.objects.all() if article.needs_restock],
         'monthly_chart': monthly_chart,
         'weekly_reports': reversed(weekly_reports),
         'selected_month': selected_month, 'selected_year': selected_year,
@@ -125,3 +132,100 @@ def create_expense(request):
     else:
         messages.error(request, 'Dépense non enregistrée : vérifiez les informations saisies.')
     return redirect('dashboard')
+
+
+def dashboard_redirect(request):
+    query = {key: request.POST[key] for key in ('month', 'year') if request.POST.get(key)}
+    return redirect(f"/?{urlencode(query)}" if query else '/')
+
+
+@login_required
+def update_article(request, article_id):
+    article = get_object_or_404(Article, pk=article_id)
+    if request.method == 'POST':
+        form = ArticleForm(request.POST, instance=article)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Article modifié avec succès.')
+        else:
+            messages.error(request, 'Article non modifié : vérifiez les champs.')
+    return dashboard_redirect(request)
+
+
+@login_required
+def delete_article(request, article_id):
+    if request.method == 'POST':
+        with transaction.atomic():
+            article = get_object_or_404(Article.objects.select_for_update(), pk=article_id)
+            remove_article(article)
+        messages.success(request, 'Article supprimé définitivement.')
+    return dashboard_redirect(request)
+
+
+@login_required
+def update_income(request, income_id):
+    if request.method != 'POST':
+        return redirect('dashboard')
+    try:
+        with transaction.atomic():
+            income = get_object_or_404(In.objects.select_for_update(), pk=income_id)
+            old_article = Article.objects.select_for_update().get(pk=income.article_id)
+            old_article.quantity += income.quantity
+            old_article.save(update_fields=['quantity'])
+            form = IncomeForm(request.POST, instance=income)
+            if not form.is_valid():
+                messages.error(request, 'Entrée non modifiée : vérifiez les champs.')
+                return dashboard_redirect(request)
+            new_article = Article.objects.select_for_update().get(pk=form.cleaned_data['article'].pk)
+            if form.cleaned_data['quantity'] > new_article.quantity:
+                raise ValidationError('Stock insuffisant pour cette entrée.')
+            form.save()
+            new_article.quantity -= income.quantity
+            new_article.save(update_fields=['quantity'])
+    except ValidationError as error:
+        messages.error(request, error.messages[0])
+        return dashboard_redirect(request)
+    messages.success(request, 'Entrée modifiée et stock recalculé.')
+    return dashboard_redirect(request)
+
+
+@login_required
+def delete_income(request, income_id):
+    if request.method == 'POST':
+        with transaction.atomic():
+            income = get_object_or_404(In.objects.select_for_update(), pk=income_id)
+            Article.objects.filter(pk=income.article_id).update(quantity=F('quantity') + income.quantity)
+            income.delete()
+        messages.success(request, 'Entrée supprimée et stock restauré.')
+    return dashboard_redirect(request)
+
+
+@login_required
+def update_expense(request, expense_id):
+    if request.method != 'POST':
+        return redirect('dashboard')
+    try:
+        with transaction.atomic():
+            expense = get_object_or_404(Out.objects.select_for_update(), pk=expense_id)
+            form = ExpenseForm(request.POST, instance=expense)
+            if not form.is_valid():
+                messages.error(request, 'Sortie non modifiée : vérifiez les champs.')
+                return dashboard_redirect(request)
+            expense.allocations.all().delete()
+            form.save()
+            allocate_expense(expense)
+    except ValidationError as error:
+        messages.error(request, error.messages[0])
+        return dashboard_redirect(request)
+    messages.success(request, 'Sortie modifiée et répartie à nouveau.')
+    return dashboard_redirect(request)
+
+
+@login_required
+def delete_expense(request, expense_id):
+    if request.method == 'POST':
+        with transaction.atomic():
+            expense = get_object_or_404(Out.objects.select_for_update(), pk=expense_id)
+            expense.delete()
+        messages.success(request, 'Sortie supprimée et solde libéré.')
+    return dashboard_redirect(request)
