@@ -72,6 +72,7 @@ class In(models.Model):
     article = models.ForeignKey(Article, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    cost_price = models.DecimalField("Coût d’achat unitaire", max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=timezone.localdate)
     month = models.CharField(max_length=2, choices=MonthChoice.choices, editable=False)
@@ -89,6 +90,8 @@ class In(models.Model):
             raise ValidationError({'quantity': "Stock insuffisant pour cette vente."})
 
     def save(self, *args, **kwargs):
+        if self.article_id and not self.cost_price:
+            self.cost_price = self.article.price
         self.month = f'{self.date.month:02d}'
         self.total_price = Decimal(self.quantity) * self.unit_price
         self.full_clean()
