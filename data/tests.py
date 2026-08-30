@@ -26,6 +26,30 @@ class CashManagementTests(TestCase):
         self.assertEqual(self.article.quantity, 17)
         self.assertEqual(sale.month, '01')
 
+    def test_sale_accepts_float_unit_price_backend(self):
+        sale = In.objects.create(
+            article=self.article,
+            quantity=3,
+            unit_price=15.5,
+            cost_price=Decimal('10.00'),
+            date=date(2026, 1, 5),
+            total_price=Decimal('0')
+        )
+        self.assertEqual(sale.unit_price, Decimal('15.50'))
+        self.assertEqual(sale.total_price, Decimal('46.50'))
+
+    def test_sale_accepts_float_quantity_backend(self):
+        sale = In.objects.create(
+            article=self.article,
+            quantity=1.5,
+            unit_price=Decimal('10.00'),
+            cost_price=Decimal('8.00'),
+            date=date(2026, 1, 5),
+            total_price=Decimal('0')
+        )
+        self.assertEqual(sale.quantity, Decimal('1.50'))
+        self.assertEqual(sale.total_price, Decimal('15.00'))
+
     def test_april_expense_uses_january_then_february_then_march(self):
         self.sale(date(2026, 1, 10), 1, '1500.00')
         self.sale(date(2026, 2, 10), 1, '6000.00')

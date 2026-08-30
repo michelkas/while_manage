@@ -39,8 +39,8 @@ class IncomeForm(forms.ModelForm):
             'date': 'Le mois de la vente est déterminé automatiquement par cette date.',
         }
         widgets = {
-            'quantity': forms.NumberInput(attrs={'min': '1'}),
-            'unit_price': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
+            'quantity': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01', 'inputmode': 'decimal'}),
+            'unit_price': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'inputmode': 'decimal'}),
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
 
@@ -75,7 +75,7 @@ class StockEntryForm(forms.ModelForm):
             'note': 'Facultatif : fournisseur, numéro de bon ou remarque.',
         }
         widgets = {
-            'quantity': forms.NumberInput(attrs={'min': '1'}),
+            'quantity': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01'}),
             'unit_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
             'date': forms.DateInput(attrs={'type': 'date'}),
             'note': forms.TextInput(attrs={'placeholder': 'Bon de livraison, fournisseur…'}),

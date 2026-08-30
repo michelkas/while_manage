@@ -5,6 +5,15 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+
+def as_decimal(value, default=Decimal('0.00')):
+    if value is None:
+        return default
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return value.quantize(Decimal('0.01'))
+
+
 class MonthChoice(models.TextChoices):
     JANUARY = '01', 'Janvier'
     FEBRUARY = '02', 'Février'
@@ -25,7 +34,7 @@ class Article(models.Model):
     description = models.TextField()
     reference = models.CharField("Référence",max_length=40, blank=True, unique=True, null=True)
     price = models.DecimalField("Prix unitaire",max_digits=10, decimal_places=2)
-    quantity = models.PositiveIntegerField("Quantité en stock")
+    quantity = models.DecimalField("Quantité en stock", max_digits=10, decimal_places=2, default=Decimal('0.00'))
     reorder_level = models.PositiveIntegerField("Niveau de réapprovisionnement", default=5)
     date_added = models.DateTimeField(auto_now_add=True)
 
@@ -45,7 +54,7 @@ class StockEntry(models.Model):
     """Une réception de marchandise, qui augmente le stock sans modifier les ventes."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     article = models.ForeignKey(Article, on_delete=models.PROTECT, related_name='stock_entries')
-    quantity = models.PositiveIntegerField()
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
     unit_cost = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=timezone.localdate)
     note = models.CharField(max_length=255, blank=True)
@@ -60,6 +69,8 @@ class StockEntry(models.Model):
         return f"{self.article} +{self.quantity}"
 
     def save(self, *args, **kwargs):
+        self.quantity = as_decimal(self.quantity)
+        self.unit_cost = as_decimal(self.unit_cost)
         creating = self._state.adding
         self.full_clean()
         super().save(*args, **kwargs)
@@ -70,7 +81,7 @@ class In(models.Model):
     """Une vente : elle constitue une entrée d'argent pour son mois."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     article = models.ForeignKey(Article, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     cost_price = models.DecimalField("Coût d’achat unitaire", max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -90,10 +101,14 @@ class In(models.Model):
             raise ValidationError({'quantity': "Stock insuffisant pour cette vente."})
 
     def save(self, *args, **kwargs):
-        if self.article_id and not self.cost_price:
+        self.quantity = as_decimal(self.quantity)
+        self.unit_price = as_decimal(self.unit_price)
+        if self.article_id and (self.cost_price is None or self.cost_price == Decimal('0.00')):
             self.cost_price = self.article.price
+        else:
+            self.cost_price = as_decimal(self.cost_price)
         self.month = f'{self.date.month:02d}'
-        self.total_price = Decimal(self.quantity) * self.unit_price
+        self.total_price = (self.quantity * self.unit_price).quantize(Decimal('0.01'))
         self.full_clean()
         creating = self._state.adding
         super().save(*args, **kwargs)
@@ -114,6 +129,7 @@ class Out(models.Model):
         ordering = ['-date', '-id']
 
     def save(self, *args, **kwargs):
+        self.amount = as_decimal(self.amount)
         self.month = f'{self.date.month:02d}'
         self.full_clean()
         return super().save(*args, **kwargs)
